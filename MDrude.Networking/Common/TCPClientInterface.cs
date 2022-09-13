@@ -106,6 +106,12 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
     }
 
+    public async Task Send<T>(string uid, T ob) {
+
+        await Write(uid, ob);
+
+    }
+
     public async Task Write<T>(string uid, T ob) {
 
         await Write(new Frame() {
