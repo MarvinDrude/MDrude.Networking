@@ -19,6 +19,8 @@ public class TCPServerConnection {
 
     public RTT RTT { get; set; } = new RTT();
 
+    public TCPServerConnection Writer => this;
+
     public async Task Write(string uid, Memory<byte> data) {
 
         await Server.Write(this, uid, data);
