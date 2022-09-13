@@ -1,11 +1,12 @@
 ﻿
 namespace MDrude.Networking.Common;
 
-public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Frame>
+public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Frame, Serializer>
     where ClientOptions : TCPClientOptions
     where ServerConnection : TCPServerConnection, new()
     where Handshaker : TCPHandshaker<ServerConnection>, new()
-    where Frame : TCPFrame<ServerConnection>, new() {
+    where Frame : TCPFrame<ServerConnection>, new()
+    where Serializer : TCPSerializer, new() {
 
     public delegate void ConnectHandler();
     public event ConnectHandler OnConnect;
@@ -38,6 +39,10 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
     private Stream Stream { get; set; }
 
+    private Serializer Serializing { get; set; }
+
+    private ConcurrentDictionary<string, TCPClientEventEmitter> Events { get; set; }
+
     public TCPClientInterface(string address, ushort port, ClientOptions options) {
 
         if (!IPAddress.TryParse(address, out var adr)) {
@@ -50,6 +55,9 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
         Running = false;
         Handshaking = new Handshaker();
+        Serializing = new Serializer();
+
+        Events = new ConcurrentDictionary<string, TCPClientEventEmitter>();
 
     }
 
@@ -83,9 +91,62 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
     }
 
+    public async Task Write<T>(string uid, T ob) {
+
+        await Write(new Frame() {
+            ID = uid,
+            Data = Serializing.Serialize(ob)
+        });
+
+    }
+
     public async Task Write(Frame message) {
 
         await message.Write(Stream);
+
+    }
+
+    public void On<T>(string uid, Func<T, Task> listener) {
+
+        if (!Events.TryGetValue(uid, out TCPClientEventEmitter entry)) {
+            entry = new TCPClientEventEmitter(uid);
+            Events[uid] = entry;
+        }
+
+        entry.AddListener(listener);
+
+    }
+
+    public bool RemoveListener<T>(string uid, Func<T, Task> listener) {
+
+        if (Events.TryGetValue(uid, out TCPClientEventEmitter entry)) {
+
+            bool removed = entry.RemoveListener(listener);
+
+            if (entry.Listeners.Count == 0) {
+                Events.TryRemove(uid, out var garbage);
+            }
+
+            return removed;
+
+        }
+
+        return false;
+
+    }
+
+    private async Task Emit(string uid, Frame message) {
+
+        if (Events.TryGetValue(uid, out TCPClientEventEmitter entry)) {
+
+            foreach (var ob in entry.Listeners) {
+
+                dynamic target = Serializing.Deserialize(message.Data, ob.Type);
+                await ob.Function(target);
+
+            }
+
+        }
 
     }
 
@@ -162,7 +223,12 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
             }
 
+            if(frame.ID == null) {
+                continue;
+            }
+
             OnMessage?.Invoke(frame);
+            await Emit(frame.ID, frame);
 
         }
 

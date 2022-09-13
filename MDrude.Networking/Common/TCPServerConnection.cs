@@ -9,7 +9,7 @@ public class TCPServerConnection {
 
     public Stream Stream { get; set; }
 
-    public object Server { get; set; }
+    public IServerInterface Server { get; set; }
 
     public Task ListenTask { get; set; }
 
@@ -19,7 +19,7 @@ public class TCPServerConnection {
 
     public async Task Write<T>(string uid, T ob) {
 
-
+        await Server.Write(this, uid, ob);
 
     }
 

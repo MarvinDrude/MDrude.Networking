@@ -2,7 +2,7 @@
 namespace MDrude.Networking.Common;
 
 public class TCPServerEventEmitter<ServerConnection>
-    where ServerConnection : TCPServerConnection {
+    where ServerConnection : TCPServerConnection, new() {
 
     public string UID { get; set; }
 

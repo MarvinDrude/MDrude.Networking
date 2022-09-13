@@ -8,6 +8,7 @@ using MDrude.NetworkingTest;
 using MDrude.Networking.Common;
 using MDrude.Networking.Utils;
 using System.Reflection;
+using System.Text;
 
 Logger.AddDefaultConsoleLogging();
 
@@ -15,11 +16,18 @@ TCPServer server = new TCPServer("127.0.0.1", 27789, new TCPServerOptions() {
     SslEnabled = false
 });
 
-server.OnMessage += async (conn, mess) => {
 
-    Console.WriteLine($"New message arrived server: {mess.ID}, {mess.Data.Length} {mess.Data.Span[122]}");
+server.On<TestDataMessage>("Test-message", async (mess, conn) => {
+    Console.WriteLine("Test-message: " + mess.Data + " " + mess.Name);
+    await conn.Write("Test-message", new TestDataMessage() {
+        Data = "Vom server vesendet",
+        Name = "Wubblors"
+    });
+});
 
-};
+server.On<TestDataMessage>("Test-message1", async (mess, conn) => {
+    Console.WriteLine("Test-message1: " + mess.Data + " " + mess.Name);
+});
 
 server.Start();
 
@@ -27,14 +35,20 @@ TCPClient client = new TCPClient("127.0.0.1", 27789, new TCPClientOptions() {
     SslEnabled = false
 });
 
+client.On<TestDataMessage>("Test-message", async (mess) => {
+    Console.WriteLine("Test-message: " + mess.Data + " " + mess.Name);
+});
+
 client.OnConnect += async () => {
 
-    byte[] data = new byte[200];
-    RandomNumberGenerator.Fill(data);
+    await client.Write("Test-message", new TestDataMessage() {
+        Data = "Marvin war hier",
+        Name = "Wubblors"
+    });
 
-    await client.Write(new TCPFrameDefault() {
-        ID = "Test-Receiver",
-        Data = data
+    await client.Write("Test-message1", new TestDataMessage() {
+        Data = "vdsvdsvdsdsvds",
+        Name = "adsadsa"
     });
 
 };

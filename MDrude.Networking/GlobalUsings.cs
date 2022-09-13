@@ -10,3 +10,5 @@ global using System.Net;
 global using System.Collections.Concurrent;
 global using System.Text;
 global using Newtonsoft.Json;
+global using MDrude.Networking.Common;
+global using MDrude.Networking.WebSockets;

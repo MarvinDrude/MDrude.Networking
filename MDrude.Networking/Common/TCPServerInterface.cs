@@ -4,14 +4,13 @@ using System.Reflection.Metadata;
 
 namespace MDrude.Networking.Common;
 
-public interface IServerInterface<ServerConnection>
-    where ServerConnection : TCPServerConnection, new() {
+public interface IServerInterface {
 
-    public Task Write<T>(ServerConnection conn, string uid, T ob);
+    public Task Write<T>(TCPServerConnection conn, string uid, T ob);
 
 }
 
-public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Frame, Serializer> : IServerInterface<ServerConnection>
+public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Frame, Serializer> : IServerInterface
     where ServerOptions : TCPServerOptions
     where ServerConnection : TCPServerConnection, new()
     where Handshaker : TCPHandshaker<ServerConnection>, new()
@@ -164,6 +163,21 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
     }
 
+    public async Task Write<T>(TCPServerConnection conn, string uid, T ob) {
+
+        await Write(conn, new Frame() {
+            ID = uid,
+            Data = Serializing.Serialize(ob)
+        });
+
+    }
+
+    public async Task Write(TCPServerConnection conn, Frame frame) {
+
+        await frame.Write(conn.Stream);
+
+    }
+
     public async Task Write<T>(ServerConnection conn, string uid, T ob) {
 
         await Write(conn, new Frame() {
@@ -233,13 +247,7 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
             foreach(var ob in entry.Listeners) {
 
-                //MethodInfo method = GetType().GetMethod("EmitInner", BindingFlags.NonPublic | BindingFlags.Instance);
-                //method = method.MakeGenericMethod(ob.Type);
-
-                //Task task = (Task)method.Invoke(this, new object[] { ob, message });
-                //await task;
-
-                var target = Serializing.Deserialize(message.Data, ob.Type);
+                dynamic target = Serializing.Deserialize(message.Data, ob.Type);
                 await ob.Function(target, conn);
 
             }
@@ -247,12 +255,6 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
         }
 
     }
-
-    //private async Task EmitInner<T>(TCPServerEventEmitterEntry entry, Frame message) {
-
-
-
-    //}
 
     private async Task ListenConnections() {
 

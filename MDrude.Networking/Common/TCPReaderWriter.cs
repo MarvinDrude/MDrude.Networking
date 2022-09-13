@@ -63,6 +63,18 @@ public class TCPReaderWriter {
 
     }
 
+    public static Memory<byte> WriteInt(int number, bool littleEndian = false) {
+
+        Memory<byte> buffer = BitConverter.GetBytes(number);
+
+        if (BitConverter.IsLittleEndian && !littleEndian) {
+            buffer.Span.Reverse();
+        }
+
+        return buffer;
+
+    }
+
     public static async Task WriteInt(Stream stream, int number, bool littleEndian = false) {
 
         Memory<byte> buffer = BitConverter.GetBytes(number);
@@ -156,6 +168,16 @@ public class TCPReaderWriter {
         }
 
         return BitConverter.ToUInt32(buffer.Span);
+
+    }
+
+    public static int ReadInt(Memory<byte> buffer, bool littleEndian = false) {
+
+        if (!littleEndian) {
+            buffer.Span.Reverse();
+        }
+
+        return BitConverter.ToInt32(buffer.Span);
 
     }
 

@@ -49,3 +49,11 @@ public class Tester {
     }
 
 }
+
+public class TestDataMessage {
+
+    public string Data { get; set; }
+
+    public string Name { get; set; }
+
+}
