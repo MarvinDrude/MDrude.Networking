@@ -23,6 +23,8 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
     public bool Running { get; private set; }
 
+    public TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Frame, Serializer> Writer => this;
+
     public IPAddress Address { get; private set; }
 
     public ushort Port { get; private set; }
