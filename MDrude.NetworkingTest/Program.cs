@@ -20,7 +20,9 @@ WSServer server = new WSServer("127.0.0.1", 27789, new WSServerOptions() {
 server.On<TestDataMessage>("message", async (mess, conn) => {
     Console.WriteLine("" + mess.Data);
 
-    await conn.Write("message1", new Memory<byte>(new byte[] { 2, 3, 4, 5, 6 }));
+    await conn.Write("mäessage", new TestDataMessage() {
+        Data = "Wombo Tomob"
+    });
 });
 
 server.On<Memory<byte>>("message1", async (mess, conn) => {
@@ -29,26 +31,26 @@ server.On<Memory<byte>>("message1", async (mess, conn) => {
 
 server.Start();
 
-WSClient client = new WSClient("127.0.0.1", 27789, new WSClientOptions() {
-    SslEnabled = false
-});
+//WSClient client = new WSClient("127.0.0.1", 27789, new WSClientOptions() {
+//    SslEnabled = false
+//});
 
-client.On<Memory<byte>>("message1", async (mess) => {
-    Console.WriteLine(mess.Span[2]);
-});
+//client.On<Memory<byte>>("message1", async (mess) => {
+//    Console.WriteLine(mess.Span[2]);
+//});
 
-client.OnConnect += async () => {
+//client.OnConnect += async () => {
 
-    await client.Write("message", new TestDataMessage() {
-        Data = "Wombo Tomob"
-    });
+//    await client.Write("message", new TestDataMessage() {
+//        Data = "Wombo Tomob"
+//    });
 
-    await client.Write("message1", new Memory<byte>(new byte[] { 2, 3, 4, 5, 6 }));
+//    await client.Write("message1", new Memory<byte>(new byte[] { 2, 3, 4, 5, 6 }));
 
 
-};
+//};
 
-client.Connect();
+//client.Connect();
 
 //TCPServer server = new TCPServer("127.0.0.1", 27789, new TCPServerOptions() {
 //    SslEnabled = false

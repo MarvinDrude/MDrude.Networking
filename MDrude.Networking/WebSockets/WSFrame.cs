@@ -3,7 +3,7 @@ namespace MDrude.Networking.WebSockets;
 
 public class WSFrame : TCPFrame<WSServerConnection> {
 
-    public WSOpcode Opcode { get; set; }
+    public WSOpcode Opcode { get; set; } = WSOpcode.BinaryFrame;
 
     public override async Task<bool> Read(Stream stream) {
 
