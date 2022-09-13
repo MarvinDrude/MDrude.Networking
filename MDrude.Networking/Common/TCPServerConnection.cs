@@ -27,6 +27,12 @@ public class TCPServerConnection {
 
     }
 
+    public async Task Send<T>(string uid, T ob) {
+
+        await Write(uid, ob);
+
+    }
+
     public async Task Write<T>(string uid, T ob) {
 
         await Server.Write(this, uid, ob);
