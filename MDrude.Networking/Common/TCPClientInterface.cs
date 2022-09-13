@@ -59,6 +59,10 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
         Events = new ConcurrentDictionary<string, TCPClientEventEmitter>();
 
+        On<Memory<byte>>("__inner-ping", async (buffer) => {
+            await Write("__inner-pong", buffer);
+        });
+
     }
 
     public void Connect() {
@@ -88,6 +92,15 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
         }
 
         Socket?.Close();
+
+    }
+
+    public async Task Write(string uid, Memory<byte> data) {
+
+        await Write(new Frame() {
+            ID = uid,
+            Data = data
+        });
 
     }
 
@@ -141,8 +154,12 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
             foreach (var ob in entry.Listeners) {
 
-                dynamic target = Serializing.Deserialize(message.Data, ob.Type);
-                await ob.Function(target);
+                if(ob.Type == typeof(Memory<byte>)) {
+                    await ob.Function(message.Data);
+                } else {
+                    dynamic target = Serializing.Deserialize(message.Data, ob.Type);
+                    await ob.Function(target);
+                }
 
             }
 

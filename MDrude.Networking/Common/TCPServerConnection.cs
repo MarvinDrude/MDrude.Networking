@@ -17,6 +17,14 @@ public class TCPServerConnection {
 
     public bool Disconnected { get; set; }
 
+    public RTT RTT { get; set; } = new RTT();
+
+    public async Task Write(string uid, Memory<byte> data) {
+
+        await Server.Write(this, uid, data);
+
+    }
+
     public async Task Write<T>(string uid, T ob) {
 
         await Server.Write(this, uid, ob);
@@ -28,5 +36,19 @@ public class TCPServerConnection {
         await frame.Write(Stream);
 
     }
+
+}
+
+public class RTT {
+
+    public bool Sending { get; set; } = false;
+
+    public DateTime Sent { get; set; }
+
+    public double Last { get; set; }
+
+    public double Max { get; set; }
+
+    public double Min { get; set; } = -1d;
 
 }

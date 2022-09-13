@@ -9,4 +9,8 @@ public class TCPServerOptions {
 
     public bool SslEnabled { get; set; } = false;
 
+    public bool RttEnabled { get; set; } = true;
+
+    public int RttInterval { get; set; } = 45000;
+
 }

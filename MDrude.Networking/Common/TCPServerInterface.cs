@@ -8,6 +8,8 @@ public interface IServerInterface {
 
     public Task Write<T>(TCPServerConnection conn, string uid, T ob);
 
+    public Task Write(TCPServerConnection conn, string uid, Memory<byte> data);
+
 }
 
 public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Frame, Serializer> : IServerInterface
@@ -48,6 +50,8 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
     private ConcurrentDictionary<string, TCPServerEventEmitter<ServerConnection>> Events { get; set; }
 
+    private Task RttTask { get; set; }
+
     public TCPServerInterface(string address, ushort port, ServerOptions options) {
 
         if(!IPAddress.TryParse(address, out var adr)) {
@@ -69,6 +73,27 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
         Handshaking = new Handshaker();
         Serializing = new Serializer();
 
+        On<Memory<byte>>("__inner-pong", async (buffer, conn) => {
+
+            if (conn.RTT.Sending) {
+
+                conn.RTT.Sending = false;
+
+                var span = DateTime.UtcNow - conn.RTT.Sent;
+                var ms = conn.RTT.Last = span.TotalMilliseconds;
+
+                if (ms < conn.RTT.Min || conn.RTT.Min == -1) {
+                    conn.RTT.Min = ms;
+                }
+
+                if (ms > conn.RTT.Max) {
+                    conn.RTT.Max = ms;
+                }
+
+            }
+
+        });
+
     }
 
     public bool Start() {
@@ -84,6 +109,13 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
         ConnectionTask = new Task(async () => { await ListenConnections(); }, ConnectionToken.Token, TaskCreationOptions.LongRunning);
         ConnectionTask.Start();
+
+        if(Options.RttEnabled) {
+
+            RttTask = new Task(async () => { await RoutineRtt(); }, ConnectionToken.Token, TaskCreationOptions.LongRunning);
+            RttTask.Start();
+
+        }
 
         Logger.DebugWrite("INFO", $"Server started.");
 
@@ -160,6 +192,15 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
             OnDisconnect?.Invoke(conn, reason);
 
         }
+
+    }
+
+    public async Task Write(TCPServerConnection conn, string uid, Memory<byte> data) {
+
+        await Write(conn, new Frame() {
+            ID = uid,
+            Data = data
+        });
 
     }
 
@@ -247,8 +288,57 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
             foreach(var ob in entry.Listeners) {
 
-                dynamic target = Serializing.Deserialize(message.Data, ob.Type);
-                await ob.Function(target, conn);
+                if(ob.Type == typeof(Memory<byte>)) {
+                    await ob.Function(message.Data, conn);
+                } else {
+                    dynamic target = Serializing.Deserialize(message.Data, ob.Type);
+                    await ob.Function(target, conn);
+                }
+
+            }
+
+        }
+
+    }
+
+    private async Task RoutineRtt() {
+
+        while(Running && !ConnectionToken.IsCancellationRequested) {
+
+            try {
+
+                await Task.Delay(Options.RttInterval, ConnectionToken.Token);
+
+            } catch(Exception) { }
+
+            if(!ConnectionToken.IsCancellationRequested) {
+
+                Memory<byte> payload = new byte[] { 2, 3, 4, 5, 6 };
+
+                foreach(var keypair in Connections) {
+
+                    var conn = keypair.Value;
+
+                    if(conn.Socket == null || conn.Disconnected) {
+                        continue;
+                    }
+
+                    if(conn.RTT.Sending) {
+
+                        conn.RTT.Last = Options.RttInterval;
+
+                        if (conn.RTT.Max < Options.RttInterval) {
+                            conn.RTT.Max = Options.RttInterval;
+                        }
+
+                    }
+
+                    conn.RTT.Sending = true;
+                    conn.RTT.Sent = DateTime.UtcNow;
+
+                    await conn.Write("__inner-ping", payload);
+
+                }
 
             }
 

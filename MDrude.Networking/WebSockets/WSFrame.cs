@@ -55,6 +55,7 @@ public class WSFrame : TCPFrame<WSServerConnection> {
                 Memory<byte> dataId = decoded.Slice(4, idLength);
                 string identifier = Encoding.UTF8.GetString(dataId.Span);
 
+                Opcode = opcode;
                 ID = identifier;
                 Data = decoded[(4 + idLength)..];
 
