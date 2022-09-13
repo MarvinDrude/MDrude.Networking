@@ -1,0 +1,12 @@
+﻿global using System.Security.Cryptography.X509Certificates;
+global using System.Net.Sockets;
+global using System.Diagnostics;
+global using System.Text.RegularExpressions;
+global using MDrude.Networking.Utils;
+global using System.Security.Cryptography;
+global using System.Security.Authentication;
+global using System.Net.Security;
+global using System.Net;
+global using System.Collections.Concurrent;
+global using System.Text;
+global using Newtonsoft.Json;

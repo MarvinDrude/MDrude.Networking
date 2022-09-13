@@ -1,0 +1,196 @@
+﻿
+namespace MDrude.Networking.Common;
+
+public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Frame>
+    where ClientOptions : TCPClientOptions
+    where ServerConnection : TCPServerConnection, new()
+    where Handshaker : TCPHandshaker<ServerConnection>, new()
+    where Frame : TCPFrame<ServerConnection>, new() {
+
+    public delegate void ConnectHandler();
+    public event ConnectHandler OnConnect;
+
+    public delegate void DisconnectHandler(TCPDisconnection reason);
+    public event DisconnectHandler OnDisconnect;
+
+    public delegate void FrameHandler(Frame frame);
+    public event FrameHandler OnMessage;
+
+    public ClientOptions Options { get; private set; }
+
+    public Socket Socket { get; private set; }
+
+    public bool Running { get; private set; }
+
+    public IPAddress Address { get; private set; }
+
+    public ushort Port { get; private set; }
+
+    private Handshaker Handshaking { get; set; }
+
+    private Task ListenTask { get; set; }
+
+    private CancellationTokenSource ListenToken { get; set; }
+
+    private Task ConnectTask { get; set; }
+
+    private CancellationTokenSource ConnectToken { get; set; }
+
+    private Stream Stream { get; set; }
+
+    public TCPClientInterface(string address, ushort port, ClientOptions options) {
+
+        if (!IPAddress.TryParse(address, out var adr)) {
+            throw new TCPSocketException("Client address is not an valid IP.");
+        }
+
+        Address = adr;
+        Options = options;
+        Port = port;
+
+        Running = false;
+        Handshaking = new Handshaker();
+
+    }
+
+    public void Connect() {
+
+        Running = true;
+
+        ConnectToken = new CancellationTokenSource();
+        ConnectTask = new Task(async () => { await Connecting(); }, ConnectToken.Token, TaskCreationOptions.LongRunning);
+
+        ConnectTask.Start();
+
+    }
+
+    public void Disconnect() {
+
+        Running = false;
+
+        ConnectToken?.Cancel();
+        ListenToken?.Cancel();
+
+        try {
+
+            Socket.Shutdown(SocketShutdown.Both);
+
+        } catch (Exception) {
+
+        }
+
+        Socket?.Close();
+
+    }
+
+    public async Task Write(Frame message) {
+
+        await message.Write(Stream);
+
+    }
+
+    private void Remove(TCPDisconnection reason) {
+
+        Disconnect();
+
+        Logger.DebugWrite("INFO", $"Client Disconnection Reason: {reason}");
+        OnDisconnect?.Invoke(reason);
+
+        Connect();
+
+    }
+
+    private async Task Connecting() {
+
+        while(Running && !ConnectToken.IsCancellationRequested) {
+
+            try {
+
+                Logger.Write("INFO", $"Try connecting to {Address}:{Port}");
+
+                Socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+                Socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+
+                await Socket.ConnectAsync(new IPEndPoint(Address, Port));
+
+                Stream = await GetStream(Socket);
+                bool res = await Handshaking.ClientHandshake(Stream);
+
+                if(res) {
+
+                    ListenToken = new CancellationTokenSource();
+                    ListenTask = new Task(async () => { await Listen(); }, ListenToken.Token, TaskCreationOptions.LongRunning);
+
+                    ListenTask.Start();
+
+                } else {
+
+                    throw new TCPSocketException("Invalid server response");
+
+                }
+
+                ConnectToken.Cancel();
+                return;
+
+            } catch(Exception) {
+
+                Logger.DebugWrite("INFO", $"Client couldn't connect to {Address}:{Port}");
+
+            }
+
+            await Task.Delay(Options.ReconnectInterval);
+
+        }
+
+    }
+
+    private async Task Listen() {
+
+        using Stream ns = Stream;
+
+        Logger.Write("INFO", "Successfully connected.");
+        OnConnect?.Invoke();
+
+        while(Running && !ListenToken.IsCancellationRequested) {
+
+            Frame frame = new Frame();
+
+            if (!(await frame.Read(ns))) {
+
+                Remove(TCPDisconnection.Disconnect);
+                break;
+
+            }
+
+            OnMessage?.Invoke(frame);
+
+        }
+
+    }
+
+    private async Task<Stream> GetStream(Socket socket) {
+
+        Stream stream = new NetworkStream(socket);
+
+        if (!Options.SslEnabled) {
+
+            return stream;
+
+        }
+
+        try {
+
+            SslStream sslStream = new SslStream(stream, false);
+            await sslStream.AuthenticateAsClientAsync(Options.Host ?? Address.ToString());
+
+            return sslStream;
+
+        } catch (Exception) {
+
+            return stream;
+
+        }
+
+    }
+
+}
