@@ -127,6 +127,12 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
     }
 
+    public async Task WriteFaulty(Frame message) {
+
+        await message.WriteFaulty(Stream);
+
+    }
+
     public void On<T>(string uid, Func<T, Task> listener) {
 
         if (!Events.TryGetValue(uid, out TCPClientEventEmitter entry)) {
@@ -181,8 +187,6 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
 
         Logger.DebugWrite("INFO", $"Client Disconnection Reason: {reason}");
         OnDisconnect?.Invoke(reason);
-
-        Connect();
 
     }
 

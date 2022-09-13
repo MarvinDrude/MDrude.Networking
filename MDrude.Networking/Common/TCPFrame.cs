@@ -26,6 +26,12 @@ public class TCPFrame<ServerConnection>
 
     }
 
+    public virtual Task<bool> WriteFaulty(Stream stream) {
+
+        throw new NotImplementedException("Not implemented");
+
+    }
+
 }
 
 public class TCPFrameDefault : TCPFrame<TCPServerConnection> {
@@ -67,6 +73,28 @@ public class TCPFrameDefault : TCPFrame<TCPServerConnection> {
             Memory<byte> dataId = Encoding.UTF8.GetBytes(ID);
             await TCPReaderWriter.WriteInt(stream, dataId.Length);
             await TCPReaderWriter.WriteULong(stream, (ulong)Data.Length);
+
+            await stream.WriteAsync(dataId);
+            await stream.WriteAsync(Data);
+
+            return true;
+
+        } catch (Exception er) {
+
+            Logger.DebugWrite("FAILED", $"TCPFrameDefault.Write error: {er.Message}");
+            return false;
+
+        }
+
+    }
+
+    public override async Task<bool> WriteFaulty(Stream stream) {
+
+        try {
+
+            Memory<byte> dataId = Encoding.UTF8.GetBytes(ID);
+            await TCPReaderWriter.WriteInt(stream, dataId.Length);
+            await TCPReaderWriter.WriteULong(stream, (ulong)Data.Length + 500);
 
             await stream.WriteAsync(dataId);
             await stream.WriteAsync(Data);
