@@ -1,4 +1,7 @@
 ﻿
+using System.Reflection.Emit;
+using System.Text;
+
 namespace MDrude.Networking.WebSockets;
 
 public class WSFrame : TCPFrame<WSServerConnection> {
@@ -9,61 +12,78 @@ public class WSFrame : TCPFrame<WSServerConnection> {
 
         try {
 
-            Memory<byte> firstData = new byte[1];
-            await stream.ReadAsync(firstData);
+            bool bitFinSet = false;
+            bool res = false;
+            bool firstFragment = true;
 
-            byte first = firstData.Span[0];
+            using MemoryStream ms = new MemoryStream();
 
-            byte bitFinFlag = 0x80;
-            byte opcodeFlag = 0x0F;
+            while (!bitFinSet) {
 
-            bool bitFinSet = (first & bitFinFlag) == bitFinFlag;
-            WSOpcode opcode = (WSOpcode)(first & opcodeFlag);
+                Memory<byte> firstData = new byte[1];
+                await stream.ReadAsync(firstData);
 
-            byte bitMaskFlag = 0x80;
+                byte first = firstData.Span[0];
 
-            Memory<byte> secData = new byte[1];
-            await stream.ReadAsync(secData);
+                byte bitFinFlag = 0x80;
+                byte opcodeFlag = 0x0F;
 
-            byte second = secData.Span[0];
+                bitFinSet = (first & bitFinFlag) == bitFinFlag;
+                WSOpcode opcode = (WSOpcode)(first & opcodeFlag);
 
-            bool bitMaskSet = (second & bitMaskFlag) == bitMaskFlag;
-            ulong length = await ReadLength(stream, second);
+                byte bitMaskFlag = 0x80;
 
-            if (length != 0) {
+                Memory<byte> secData = new byte[1];
+                await stream.ReadAsync(secData);
 
-                Memory<byte> decoded = new byte[length];
+                byte second = secData.Span[0];
 
-                if (bitMaskSet) {
+                bool bitMaskSet = (second & bitMaskFlag) == bitMaskFlag;
+                ulong length = await ReadLength(stream, second);
 
-                    byte[] key = (await TCPReaderWriter.Read(stream, 4)).ToArray();
-                    byte[] encoded = (await TCPReaderWriter.Read(stream, length)).ToArray();
+                if (length != 0) {
 
-                    for (int i = 0; i < encoded.Length; i++) {
+                    Memory<byte> decoded = new byte[length];
 
-                        decoded.Span[i] = (byte)(encoded[i] ^ key[i % 4]);
+                    if (bitMaskSet) {
+
+                        byte[] key = (await TCPReaderWriter.Read(stream, 4)).ToArray();
+                        byte[] encoded = (await TCPReaderWriter.Read(stream, length)).ToArray();
+
+                        for (int i = 0; i < encoded.Length; i++) {
+
+                            decoded.Span[i] = (byte)(encoded[i] ^ key[i % 4]);
+
+                        }
+
+                    } else {
+
+                        (await TCPReaderWriter.Read(stream, length)).CopyTo(decoded);
 
                     }
 
-                } else {
+                    if (firstFragment) {
+                        Opcode = opcode;
+                        res = true;
+                    }
 
-                    (await TCPReaderWriter.Read(stream, length)).CopyTo(decoded);
+                    await ms.WriteAsync(decoded);
+                    firstFragment = false;
 
                 }
 
-                int idLength = TCPReaderWriter.ReadInt(decoded[..4]);
-                Memory<byte> dataId = decoded.Slice(4, idLength);
-                string identifier = Encoding.UTF8.GetString(dataId.Span);
-
-                Opcode = opcode;
-                ID = identifier;
-                Data = decoded[(4 + idLength)..];
-
-                return true;
-
             }
 
-            return false;
+            Memory<byte> dec = ms.ToArray();
+
+            int idLength = TCPReaderWriter.ReadInt(dec[..4]);
+            Memory<byte> dataId = dec.Slice(4, idLength);
+            string identifier = Encoding.UTF8.GetString(dataId.Span);
+
+            ID = identifier;
+            Data = dec[(4 + idLength)..];
+
+            return res;
 
         } catch (Exception er) {
 

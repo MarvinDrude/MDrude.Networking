@@ -313,8 +313,6 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
             if(!ConnectionToken.IsCancellationRequested) {
 
-                Memory<byte> payload = new byte[] { 2, 3, 4, 5, 6 };
-
                 foreach(var keypair in Connections) {
 
                     var conn = keypair.Value;
@@ -336,6 +334,7 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
                     conn.RTT.Sending = true;
                     conn.RTT.Sent = DateTime.UtcNow;
 
+                    Memory<byte> payload = TCPReaderWriter.WriteFloat((float)conn.RTT.Last);
                     await conn.Write("__inner-ping", payload);
 
                 }

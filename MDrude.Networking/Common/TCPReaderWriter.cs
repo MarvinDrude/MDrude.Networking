@@ -15,6 +15,18 @@ public class TCPReaderWriter {
 
     }
 
+    public static Memory<byte> WriteFloat(float number, bool littleEndian = false) {
+
+        Memory<byte> buffer = BitConverter.GetBytes(number);
+
+        if (BitConverter.IsLittleEndian && !littleEndian) {
+            buffer.Span.Reverse();
+        }
+
+        return buffer;
+
+    }
+
     public static async Task WriteFloat(Stream stream, float number, bool littleEndian = false) {
 
         Memory<byte> buffer = BitConverter.GetBytes(number);

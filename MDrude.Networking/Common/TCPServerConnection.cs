@@ -23,11 +23,15 @@ public class TCPServerConnection {
 
     public async Task Write(string uid, Memory<byte> data) {
 
+        if (Disconnected) return;
+
         await Server.Write(this, uid, data);
 
     }
 
     public async Task Send<T>(string uid, T ob) {
+
+        if (Disconnected) return;
 
         await Write(uid, ob);
 
@@ -35,11 +39,15 @@ public class TCPServerConnection {
 
     public async Task Write<T>(string uid, T ob) {
 
+        if (Disconnected) return;
+
         await Server.Write(this, uid, ob);
 
     }
 
     public async Task Write(TCPFrame<TCPServerConnection> frame) {
+
+        if (Disconnected) return;
 
         await frame.Write(Stream);
 
