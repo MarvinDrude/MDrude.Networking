@@ -1,51 +1,176 @@
 ﻿
+using MDrude.Networking.Common;
+using MDrude.Networking.Utils;
+using MDrude.Networking.WebSockets;
 using System.Net;
 using System.Net.Sockets;
 
 namespace MDrude.NetworkingTest;
 
-public static class UnitTestNetworkStream {
-    /// <summary>
-    /// Create a TCP connection and return both ends.
-    /// </summary>
-    /// <param name="client">Return the client end of the connection.</param>
-    /// <param name="server">Return the servr end of the connection.</param>
-    public static void Create(out NetworkStream client, out NetworkStream server) {
-        /* Create a signal to wait for the connection to be completed. */
-        using var connected = new ManualResetEvent(false);
+public class Examples {
 
-        /* Open a TCP listener and start listening, allowing the OS to pick the port. */
-        TcpListener listen = new TcpListener(IPAddress.Loopback, 0);
-        listen.Start();
-        int port = ((IPEndPoint)listen.LocalEndpoint).Port;
+    public static async Task ExampleOne() {
 
-        /* Start listening. Will store the server handle and raise the flag when ready. */
-        listen.BeginAcceptTcpClient(OnConnect, null);
-        TcpClient tcpServer = null;
-        void OnConnect(IAsyncResult iar) {
-            tcpServer = listen.EndAcceptTcpClient(iar);
-            connected.Set();
-        }
+        TCPServer server = new TCPServer("127.0.0.1", 27789, new TCPServerOptions() {
+            // Whether ssl is enabled or not
+            SslEnabled = false,
+            // Certificate if ssl is enabled
+            Certificate = null,
+            // Whether periodically there are pings sent to calculate RTT for the clients
+            RttEnabled = false,
+            // Defaults to 500 and is used for what the socket uses as backlog
+            Backlog = 500,
+            // Interval of RTT pings are sent to all connected clients
+            RttInterval = 45000
+        });
 
-        /* Open the client end of the connection. */
-        var tcpClient = new TcpClient(IPAddress.Loopback.ToString(), port);
+        server.On<Memory<byte>>("test-message", async (mess, conn) => {
 
-        /* Wait for the connection to complete. */
-        connected.WaitOne();
+            // mess contains the raw bytes received without header bytes
+            Logger.Write("INFO", $"First two bytes received in content: {mess.Span[0]} {mess.Span[1]}");
+            await Task.Delay(3000);
 
-        /* Stop listening. */
-        listen.Stop();
+            // sending raw bytes to client
+            await conn.Send("test-message", mess);
 
-        /* Return the two ends back to the caller. */
-        client = tcpClient.GetStream();
-        server = tcpServer.GetStream();
+        });
+
+        server.On<TestDataMessage>("test-json", async (mess, conn) => {
+
+            // mess contains object created by json
+            Logger.Write("INFO", $"JSON object received: {mess.Name}: {mess.Data} {mess.Number}");
+            await Task.Delay(5000);
+
+            mess.Number++;
+            // sending object as json to client
+            await conn.Send("test-json", mess);
+
+        });
+
+        server.OnConnect += async (conn, time) => {
+
+            // sending object as json to client on connect
+            await conn.Send("test-json", new TestDataMessage() {
+                Name = "NameTest",
+                Data = "DataTest",
+                Number = 0
+            });
+            // sending raw bytes to client on connect
+            await conn.Send("test-message", new Memory<byte>(new byte[] {
+                12, 13, 14
+            }));
+
+        };
+
+        server.Start();
+
+        TCPClient client = new TCPClient("127.0.0.1", 27789, new TCPClientOptions() {
+            // Host needed if ssl enabled www.google.com for example
+            Host = null,
+            // Time between connect tries in ms
+            ReconnectInterval = 2000,
+            // Whether ssl is enabled or not
+            SslEnabled = false
+        });
+
+        client.On<Memory<byte>>("test-message", async (mess) => {
+
+            // send raw bytes to server
+            await client.Send("test-message", mess);
+
+        });
+
+        client.On<TestDataMessage>("test-json", async (mess) => {
+
+            // send json object to server
+            await client.Send("test-json", mess);
+
+        });
+
+        client.Connect();
+
     }
-}
 
-public class Tester {
+    public static async Task ExampleTwo() {
 
-    public async Task<int> RunCalc<T>(int a, int b) {
-        return a + b;
+        WSServer server = new WSServer("127.0.0.1", 27789, new WSServerOptions() {
+            // Whether ssl is enabled or not
+            SslEnabled = false,
+            // Certificate if ssl is enabled
+            Certificate = null,
+            // Whether periodically there are pings sent to calculate RTT for the clients
+            RttEnabled = false,
+            // Defaults to 500 and is used for what the socket uses as backlog
+            Backlog = 500,
+            // Interval of RTT pings are sent to all connected clients
+            RttInterval = 45000
+        });
+
+        server.On<Memory<byte>>("test-message", async (mess, conn) => {
+
+            // mess contains the raw bytes received without header bytes
+            Logger.Write("INFO", $"First two bytes received in content: {mess.Span[0]} {mess.Span[1]}");
+            await Task.Delay(3000);
+
+            // sending raw bytes to client
+            await conn.Send("test-message", mess);
+
+        });
+
+        server.On<TestDataMessage>("test-json", async (mess, conn) => {
+
+            // mess contains object created by json
+            Logger.Write("INFO", $"JSON object received: {mess.Name}: {mess.Data} {mess.Number}");
+            await Task.Delay(5000);
+
+            mess.Number++;
+            // sending object as json to client
+            await conn.Send("test-json", mess);
+
+        });
+
+        server.OnConnect += async (conn, time) => {
+
+            // sending object as json to client on connect
+            await conn.Send("test-json", new TestDataMessage() {
+                Name = "NameTest",
+                Data = "DataTest",
+                Number = 0
+            });
+            // sending raw bytes to client on connect
+            await conn.Send("test-message", new Memory<byte>(new byte[] {
+                12, 13, 14
+            }));
+
+        };
+
+        server.Start();
+
+        WSClient client = new WSClient("127.0.0.1", 27789, new WSClientOptions() {
+            // Host needed if ssl enabled www.google.com for example
+            Host = null,
+            // Time between connect tries in ms
+            ReconnectInterval = 2000,
+            // Whether ssl is enabled or not
+            SslEnabled = false
+        });
+
+        client.On<Memory<byte>>("test-message", async (mess) => {
+
+            // send raw bytes to server
+            await client.Send("test-message", mess);
+
+        });
+
+        client.On<TestDataMessage>("test-json", async (mess) => {
+
+            // send json object to server
+            await client.Send("test-json", mess);
+
+        });
+
+        client.Connect();
+
     }
 
 }

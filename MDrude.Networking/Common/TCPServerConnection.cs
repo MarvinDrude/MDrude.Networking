@@ -21,6 +21,14 @@ public class TCPServerConnection {
 
     public TCPServerConnection Writer => this;
 
+    public async Task Send(string uid, Memory<byte> data) {
+
+        if (Disconnected) return;
+
+        await Write(uid, data);
+
+    }
+
     public async Task Write(string uid, Memory<byte> data) {
 
         if (Disconnected) return;

@@ -13,6 +13,6 @@ using MDrude.Networking.WebSockets;
 
 Logger.AddDefaultConsoleLogging();
 
-
+await Examples.ExampleTwo();
 
 Console.ReadLine();
