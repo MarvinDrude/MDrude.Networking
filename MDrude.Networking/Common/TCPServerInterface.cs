@@ -215,7 +215,7 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
     public async Task Write(TCPServerConnection conn, Frame frame) {
 
-        await frame.Write(conn.Stream);
+        await Write((ServerConnection)conn, frame);
 
     }
 
@@ -230,7 +230,11 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
     public async Task Write(ServerConnection conn, Frame frame) {
 
-        await frame.Write(conn.Stream);
+        var res = await frame.Write(conn.Stream);
+
+        if (!res) {
+            RemoveClient(conn, TCPDisconnection.Disconnect);
+        }
 
     }
 
@@ -247,7 +251,11 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
 
         foreach(var keypair in Connections) {
 
-            await frame.Write(keypair.Value.Stream);
+            var res = await frame.Write(keypair.Value.Stream);
+
+            if(!res) {
+                RemoveClient(keypair.Value, TCPDisconnection.Disconnect);
+            }
 
         }
 

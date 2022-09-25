@@ -70,6 +70,10 @@ public class WSFrame : TCPFrame<WSServerConnection> {
                     await ms.WriteAsync(decoded);
                     firstFragment = false;
 
+                } else {
+
+                    return false;
+
                 }
 
             }
