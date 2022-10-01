@@ -78,20 +78,29 @@ public class WSFrame : TCPFrame<WSServerConnection> {
 
             }
 
-            Memory<byte> dec = ms.ToArray();
+            if(Opcode == WSOpcode.TextFrame || Opcode == WSOpcode.PingFrame
+                || Opcode == WSOpcode.PongFrame || Opcode == WSOpcode.ConnectionCloseFrame) {
 
-            int idLength = TCPReaderWriter.ReadInt(dec[..4]);
+                ID = Opcode == WSOpcode.TextFrame ? "__text-frame" : null;
+                Data = ms.ToArray();
+
+                return true;
+
+            }
+
+            Memory<byte> dec = ms.ToArray();
+            int idLength = TCPReaderWriter.ReadInt(dec.Slice(0, 4));
             Memory<byte> dataId = dec.Slice(4, idLength);
             string identifier = Encoding.UTF8.GetString(dataId.Span);
 
             ID = identifier;
-            Data = dec[(4 + idLength)..];
+            Data = dec.Slice(4 + idLength);
 
             return res;
 
         } catch (Exception er) {
 
-            Logger.DebugWrite("FAILED", $"WSFrame.Read error: {er.Message}");
+            Logger.Write("INFO", $"WSFrame.Read error: {er.Message}");
             return false;
 
         }
@@ -132,11 +141,13 @@ public class WSFrame : TCPFrame<WSServerConnection> {
 
         try {
 
+            using MemoryStream ms = new MemoryStream();
+
             byte bitFin = 0x80;
             byte first = (byte)(bitFin | (byte)Opcode);
 
             Memory<byte> firstData = new byte[] { first };
-            await stream.WriteAsync(firstData);
+            await ms.WriteAsync(firstData);
 
             Memory<byte> idData = Encoding.UTF8.GetBytes(ID);
             Memory<byte> idLength = TCPReaderWriter.WriteInt(idData.Length);
@@ -151,31 +162,34 @@ public class WSFrame : TCPFrame<WSServerConnection> {
             if (Data.Length <= 125) {
 
                 Memory<byte> secData = new byte[] { (byte)Data.Length };
-                await stream.WriteAsync(secData);
+                await ms.WriteAsync(secData);
 
             } else if (Data.Length <= 65535) {
 
                 Memory<byte> secData = new byte[] { 126 };
-                await stream.WriteAsync(secData);
+                await ms.WriteAsync(secData);
 
-                await TCPReaderWriter.WriteUShort(stream, (ushort)Data.Length, false);
+                await TCPReaderWriter.WriteUShort(ms, (ushort)Data.Length, false);
 
             } else {
 
                 Memory<byte> secData = new byte[] { 127 };
-                await stream.WriteAsync(secData);
+                await ms.WriteAsync(secData);
 
-                await TCPReaderWriter.WriteULong(stream, (ulong)Data.Length, false);
+                await TCPReaderWriter.WriteULong(ms, (ulong)Data.Length, false);
 
             }
 
-            await stream.WriteAsync(Data);
+            await ms.WriteAsync(Data);
+            ms.Position = 0;
+
+            await stream.WriteAsync(ms.ToArray());
 
             return true;
 
         } catch (Exception er) {
 
-            Logger.DebugWrite("FAILED", $"WSFrame.Write error: {er.Message}");
+            Logger.Write("INFO", $"WSFrame.Write error: {er.Message}");
             return false;
 
         }

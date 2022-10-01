@@ -70,12 +70,16 @@ public class TCPFrameDefault : TCPFrame<TCPServerConnection> {
 
         try {
 
-            Memory<byte> dataId = Encoding.UTF8.GetBytes(ID);
-            await TCPReaderWriter.WriteInt(stream, dataId.Length);
-            await TCPReaderWriter.WriteULong(stream, (ulong)Data.Length);
+            using MemoryStream ms = new MemoryStream();
 
-            await stream.WriteAsync(dataId);
-            await stream.WriteAsync(Data);
+            Memory<byte> dataId = Encoding.UTF8.GetBytes(ID);
+            await TCPReaderWriter.WriteInt(ms, dataId.Length);
+            await TCPReaderWriter.WriteULong(ms, (ulong)Data.Length);
+
+            await ms.WriteAsync(dataId);
+            await ms.WriteAsync(Data);
+
+            await stream.WriteAsync(ms.ToArray());
 
             return true;
 

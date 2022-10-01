@@ -110,7 +110,7 @@ public class Examples {
 
             // mess contains the raw bytes received without header bytes
             Logger.Write("INFO", $"First two bytes received in content: {mess.Span[0]} {mess.Span[1]}");
-            await Task.Delay(3000);
+            await Task.Delay(10);
 
             // sending raw bytes to client
             await conn.Send("test-message", mess);
@@ -121,7 +121,7 @@ public class Examples {
 
             // mess contains object created by json
             Logger.Write("INFO", $"JSON object received: {mess.Name}: {mess.Data} {mess.Number}");
-            await Task.Delay(5000);
+            await Task.Delay(20);
 
             mess.Number++;
             // sending object as json to client

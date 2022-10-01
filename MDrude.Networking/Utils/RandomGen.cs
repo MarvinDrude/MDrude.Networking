@@ -14,6 +14,15 @@ public static class RandomGen {
 
     }
 
+    public static string CreateBase64(int length) {
+
+        var src = new byte[length];
+        RandomNumberGenerator.Fill(src);
+
+        return Convert.ToBase64String(src);
+
+    }
+
     public static string GenRandomUID<T>(IDictionary<string, T> dict, uint len) {
 
         string result = null;
