@@ -18,7 +18,7 @@ public class WSFrame : TCPFrame<WSServerConnection> {
 
             using MemoryStream ms = new MemoryStream();
 
-            while (!bitFinSet) { // fragmented messages can be interrupted by ping pong close frames (not handled rn) if that would happen then client just gets disconnected
+            while (!bitFinSet) { // fragmented messages can be interrupted by ping pong close frames (not handled rn, clients normally wont do it) if that would happen then client just gets disconnected
 
                 Memory<byte> firstData = new byte[1];
                 await stream.ReadAsync(firstData);
