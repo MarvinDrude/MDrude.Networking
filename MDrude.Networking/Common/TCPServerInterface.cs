@@ -350,6 +350,7 @@ public class TCPServerInterface<ServerOptions, ServerConnection, Handshaker, Fra
         Socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
 
         Socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+        Socket.NoDelay = true;
         Socket.Bind(new IPEndPoint(Address, Port));
 
         Socket.Listen(Options.Backlog);

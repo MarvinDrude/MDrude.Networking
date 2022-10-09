@@ -205,6 +205,8 @@ public class TCPClientInterface<ClientOptions, ServerConnection, Handshaker, Fra
                 Logger.Write("INFO", $"Try connecting to {Address}:{Port}");
 
                 Socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+                Socket.NoDelay = true;
+
                 Socket.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
 
                 await Socket.ConnectAsync(new IPEndPoint(Address, Port));
