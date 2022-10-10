@@ -82,8 +82,6 @@ var MD = MD || {};
 
 })();
 
-var MD = MD || {};
-
 (async () => {
 
     if (MD.JsonWebSocket) {
@@ -139,30 +137,18 @@ var MD = MD || {};
 
         send(uid, ob) {
 
-            if (location.href.indexOf("localhost") > -1) {
-                console.log("out", uid, ob);
-            }
-
             let idBytes = this.toUTF8Array(uid);
             let idLengthBytes = this.toBytesInt32(idBytes.length);
+            idLengthBytes.reverse();
 
             let text = JSON.stringify(ob);
             let textBytes = this.toUTF8Array(text);
 
             let sending = new Uint8Array(idLengthBytes.length + idBytes.length + textBytes.length);
-            let index = 0;
 
-            for (let e = idLengthBytes.length - 1; e >= 0; e--) {
-                sending[index++] = idLengthBytes[e];
-            }
-
-            for (let e = 0; e < idBytes.length; e++) {
-                sending[index++] = idBytes[e];
-            }
-
-            for (let e = 0; e < textBytes.length; e++) {
-                sending[index++] = textBytes[e];
-            }
+            sending.set(idLengthBytes, 0);
+            sending.set(idBytes, idLengthBytes.length);
+            sending.set(textBytes, idLengthBytes.length + idBytes.length);
 
             this.socket.send(sending);
 
@@ -170,27 +156,15 @@ var MD = MD || {};
 
         sendBinary(uid, data) {
 
-            if (location.href.indexOf("localhost") > -1) {
-                console.log("out", uid, data);
-            }
-
             let idBytes = this.toUTF8Array(uid);
             let idLengthBytes = this.toBytesInt32(idBytes.length);
+            idLengthBytes.reverse();
 
             let sending = new Uint8Array(idLengthBytes.length + idBytes.length + data.length);
-            let index = 0;
 
-            for (let e = idLengthBytes.length - 1; e >= 0; e--) {
-                sending[index++] = idLengthBytes[e];
-            }
-
-            for (let e = 0; e < idBytes.length; e++) {
-                sending[index++] = idBytes[e];
-            }
-
-            for (let e = 0; e < data.length; e++) {
-                sending[index++] = data[e];
-            }
+            sending.set(idLengthBytes, 0);
+            sending.set(idBytes, idLengthBytes.length);
+            sending.set(data, idLengthBytes.length + idBytes.length);
 
             this.socket.send(sending);
 
@@ -229,7 +203,13 @@ var MD = MD || {};
                             const text = this.fromUTF8Array(data);
 
                             if (uid == "__inner-ping") {
+
+                                const vi = new DataView(data);
+                                this.rtt = vi.getFloat32(0);
+
+                                this.emit("__inner-ping", this.rtt);
                                 return this.send("__inner-pong", {});
+
                             }
 
                             const ob = JSON.parse(text);
@@ -298,15 +278,21 @@ var MD = MD || {};
 
 })();
 
-var test = new MD.JsonWebSocket({
+let test = new MD.JsonWebSocket({
     "address": "ws://127.0.0.1:27789"
 });
 
-test.on("message", (ob) => {
+test.on("example-message", async (ob) => {
     console.log(ob);
 });
 
-test.connect();
+test.on("connect", async () => {
 
-//test.send("message", { "Data": "Märvin" });
-//test.sendBinary("message1", new Uint8Array(22));
+    let sending = new Uint8Array(32);
+
+    test.send("example-message", { "payload-example": "x" });
+    test.sendBinary("binary-example", sending);
+
+});
+
+test.connect();
