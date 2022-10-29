@@ -1,4 +1,6 @@
 ﻿
+using System.Threading.Channels;
+
 namespace MDrude.Networking.Common;
 
 public class TCPServerConnection {
@@ -15,17 +17,65 @@ public class TCPServerConnection {
 
     public CancellationTokenSource ListenToken { get; set; }
 
-    public bool Disconnected { get; set; }
+    private bool _Diconnected;
+    public bool Disconnected { 
+        get {
+            return _Diconnected;
+        } 
+        set {
+            _Diconnected = value;
+            if(_Diconnected && !Source.IsCancellationRequested) {
+                Source.Cancel();
+            }
+        }
+    }
 
     public RTT RTT { get; set; } = new RTT();
 
     public TCPServerConnection Writer => this;
 
+    private Channel<Func<Task>> Messages { get; set; }
+
+    private CancellationTokenSource Source { get; set; }
+
+    public TCPServerConnection() {
+
+        Source = new CancellationTokenSource();
+        Messages = Channel.CreateUnbounded<Func<Task>>();
+
+        new Task(async () => {
+
+            try {
+
+                while(!Disconnected) {
+
+                    var func = await Messages.Reader.ReadAsync(Source.Token);
+
+                    try {
+
+                        await func();
+
+                    } catch(Exception) {
+
+                    }
+
+                }
+
+            } catch(Exception) {
+
+            }
+
+        }, TaskCreationOptions.LongRunning).Start();
+
+    }
+
     public async Task Send(string uid, Memory<byte> data) {
 
         if (Disconnected) return;
 
-        await Write(uid, data);
+        await Messages.Writer.WriteAsync(async () => {
+            await Write(uid, data);
+        });
 
     }
 
@@ -33,7 +83,11 @@ public class TCPServerConnection {
 
         if (Disconnected) return;
 
-        await Server.Write(this, uid, data);
+        await Messages.Writer.WriteAsync(async () => {
+            await Server.Write(this, uid, data);
+
+        });
+
 
     }
 
@@ -41,7 +95,11 @@ public class TCPServerConnection {
 
         if (Disconnected) return;
 
-        await Write(uid, ob);
+        await Messages.Writer.WriteAsync(async () => {
+            await Write(uid, ob);
+
+        });
+
 
     }
 
@@ -49,7 +107,11 @@ public class TCPServerConnection {
 
         if (Disconnected) return;
 
-        await Server.Write(this, uid, ob);
+        await Messages.Writer.WriteAsync(async () => {
+
+            await Server.Write(this, uid, ob);
+
+        });
 
     }
 
@@ -57,7 +119,11 @@ public class TCPServerConnection {
 
         if (Disconnected) return;
 
-        await frame.Write(Stream);
+        await Messages.Writer.WriteAsync(async () => {
+            await frame.Write(Stream);
+
+        });
+
 
     }
 
