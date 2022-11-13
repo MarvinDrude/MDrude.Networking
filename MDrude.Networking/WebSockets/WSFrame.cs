@@ -100,7 +100,7 @@ public class WSFrame : TCPFrame<WSServerConnection> {
 
         } catch (Exception er) {
 
-            Logger.Write("INFO", $"WSFrame.Read error: {er.Message}");
+            Logger.DebugWrite("INFO", $"WSFrame.Read error: {er.Message}");
             return false;
 
         }
@@ -189,7 +189,7 @@ public class WSFrame : TCPFrame<WSServerConnection> {
 
         } catch (Exception er) {
 
-            Logger.Write("INFO", $"WSFrame.Write error: {er.Message}");
+            Logger.DebugWrite("INFO", $"WSFrame.Write error: {er.Message}");
             return false;
 
         }
